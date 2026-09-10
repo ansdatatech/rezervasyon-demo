@@ -1,0 +1,185 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { decodeJwt } from 'jose';
+
+const token = Astro.cookies.get('auth_token')?.value;
+
+if (!token) {
+    return Astro.redirect('/');
+}
+
+// Güvenlik: Sadece YÖNETİCİ girebilir
+try {
+    const decoded = decodeJwt(token);
+    if (decoded.rol !== 'yonetici') {
+        return Astro.redirect('/');
+    }
+} catch (error) {
+    return Astro.redirect('/');
+}
+---
+
+<Layout title="Ayarlar ve Personel | Kort Rezervasyon">
+
+    <div class="bg-dark text-white p-2 d-flex justify-content-between align-items-center" style="border-bottom: 3px solid var(--accent-green);">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span class="fw-bold"><i class="fa-solid fa-gear text-secondary me-2"></i> SİSTEM AYARLARI VE YETKİLENDİRME</span>
+            <a href="/" class="btn btn-sm btn-outline-light"><i class="fa-solid fa-arrow-left me-1"></i> Panele Dön</a>
+        </div>
+    </div>
+
+    <div class="container mt-5">
+        <div class="row">
+            
+            <!-- SOL: YENİ PERSONEL EKLEME FORMU -->
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm border-0 rounded-4 h-100">
+                    <div class="card-header bg-white border-0 pt-4 pb-0">
+                        <h5 class="fw-bold text-secondary"><i class="fa-solid fa-user-plus me-2"></i>Yeni Hesap Ekle</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="personelFormu">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-muted">Yetki Rolü</label>
+                                <select id="pRol" class="form-select border-secondary fw-bold text-dark">
+                                    <option value="sekreter">Sekreter (Ön Büro / Takvim Yönetimi)</option>
+                                    <option value="antrenor">Antrenör / Uzman (Sadece Kendi Seansları)</option>
+                                    <option value="yonetici">Yönetici (Tam Yetki)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-muted">Kullanıcı Adı (Sisteme Giriş İçin)</label>
+                                <input type="text" id="pKullaniciAdi" class="form-control" placeholder="Örn: ahmet_hoca" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-muted">Görünür İsim (Ad Soyad)</label>
+                                <input type="text" id="pAdSoyad" class="form-control" placeholder="Örn: Ahmet Yılmaz" required>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label fw-bold small text-muted">Geçici Şifre</label>
+                                <input type="password" id="pSifre" class="form-control" placeholder="En az 6 karakter" required minlength="6">
+                            </div>
+                            <button type="submit" id="pKaydetBtn" class="btn btn-primary w-100 fw-bold shadow-sm py-2">HESAP OLUŞTUR</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SAĞ: MEVCUT PERSONELLER TABLOSU -->
+            <div class="col-md-8 mb-4">
+                <div class="card shadow-sm border-0 rounded-4 h-100">
+                    <div class="card-header bg-white border-0 pt-4 pb-0">
+                        <h5 class="fw-bold text-secondary"><i class="fa-solid fa-users-gear me-2"></i>Sistem Kullanıcıları</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>İsim Soyisim</th>
+                                        <th>Kullanıcı Adı</th>
+                                        <th>Rol / Yetki</th>
+                                        <th class="text-end">İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="personelTabloGövdesi">
+                                    <tr><td colspan="4" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> Yükleniyor...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</Layout>
+
+<script is:inline>
+    document.addEventListener("DOMContentLoaded", function() {
+        personelleriGetir();
+
+        // PERSONEL EKLEME İŞLEMİ
+        document.getElementById('personelFormu').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('pKaydetBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> OLUŞTURULUYOR...';
+
+            try {
+                const response = await fetch('/api/kullanici', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rol: document.getElementById('pRol').value,
+                        kullaniciAdi: document.getElementById('pKullaniciAdi').value,
+                        adSoyad: document.getElementById('pAdSoyad').value,
+                        sifre: document.getElementById('pSifre').value
+                    })
+                });
+
+                if (response.ok) {
+                    document.getElementById('personelFormu').reset();
+                    personelleriGetir();
+                    alert("Hesap başarıyla oluşturuldu!");
+                } else {
+                    const data = await response.json();
+                    alert(data.error || "Hata oluştu.");
+                }
+            } catch (err) {
+                alert("Sunucuya ulaşılamadı.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'HESAP OLUŞTUR';
+            }
+        });
+    });
+
+    async function personelleriGetir() {
+        const tbody = document.getElementById('personelTabloGövdesi');
+        try {
+            const response = await fetch('/api/kullanici');
+            const kullanicilar = await response.json();
+            
+            tbody.innerHTML = '';
+            
+            kullanicilar.forEach(k => {
+                let rolBadge = '';
+                if (k.rol === 'yonetici') rolBadge = '<span class="badge bg-danger">Yönetici</span>';
+                else if (k.rol === 'sekreter') rolBadge = '<span class="badge bg-info text-dark">Sekreter</span>';
+                else rolBadge = '<span class="badge bg-success">Antrenör / Uzman</span>';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="fw-bold">${k.adSoyad}</td>
+                    <td class="text-muted">@${k.kullaniciAdi}</td>
+                    <td>${rolBadge}</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-danger" onclick="personelSil(${k.id}, '${k.adSoyad}')">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Bağlantı hatası!</td></tr>';
+        }
+    }
+
+    window.personelSil = async function(id, adSoyad) {
+        if(confirm(`${adSoyad} adlı kişinin sisteme giriş yetkisini iptal etmek istiyor musunuz?`)) {
+            try {
+                const response = await fetch(`/api/kullanici?id=${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    personelleriGetir();
+                } else {
+                    const data = await response.json();
+                    alert(data.error || "Silinemedi.");
+                }
+            } catch(err) {
+                alert("Hata oluştu.");
+            }
+        }
+    }
+</script>

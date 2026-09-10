@@ -1,0 +1,457 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { decodeJwt } from 'jose';
+
+const token = Astro.cookies.get('auth_token')?.value;
+let isLoggedIn = false;
+let aktifKullanici = "";
+let aktifRol = "";
+
+if (token) {
+    try {
+        const decoded = decodeJwt(token);
+        isLoggedIn = true;
+        aktifKullanici = decoded.kullaniciAdi as string;
+        aktifRol = decoded.rol as string;
+    } catch (error) {
+        isLoggedIn = false;
+    }
+}
+---
+
+<Layout title="Kort Rezervasyon | Yönetim Paneli">
+
+    {!isLoggedIn ? (
+        <div id="loginEkrani" class="position-fixed w-100 h-100 d-flex justify-content-center align-items-center" style="background-color: var(--main-navy); z-index: 9999; top: 0; left: 0;">
+            <div class="card shadow-lg border-0 rounded-4" style="width: 100%; max-width: 400px;">
+                <div class="card-body p-5 text-center">
+                    <i class="fa-solid fa-calendar-check text-success mb-3" style="font-size: 3rem;"></i>
+                    <h3 class="fw-bold mb-4" style="color: var(--main-navy);">Sisteme Giriş</h3>
+                    
+                    <form id="loginForm">
+                        <div class="form-floating mb-3 text-start">
+                            <input type="text" class="form-control fw-bold" id="kullaniciAdi" placeholder="Kullanıcı Adı" required>
+                            <label for="kullaniciAdi"><i class="fa-solid fa-user text-muted me-1"></i> Kullanıcı Adı</label>
+                        </div>
+                        <div class="form-floating mb-4 text-start">
+                            <input type="password" class="form-control fw-bold" id="sifre" placeholder="Şifre" value="123456" required>
+                            <label for="sifre"><i class="fa-solid fa-lock text-muted me-1"></i> Şifre</label>
+                            <div class="form-text mt-2 small">Demo: yonetici, sekreter, antrenor (Şifre: 123456)</div>
+                        </div>
+                        <button type="submit" id="loginBtn" class="btn btn-success w-100 py-3 fw-bold fs-5 rounded-3 shadow-sm">GİRİŞ YAP</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    ) : (
+        <div id="anaSistem">
+            <div id="authVerileri" data-kullanici={aktifKullanici} data-rol={aktifRol} class="d-none"></div>
+
+            <div class="bg-dark text-white p-2 d-flex justify-content-center align-items-center gap-3" style="border-bottom: 3px solid var(--accent-green);">
+                <span class="badge bg-primary text-white"><i class="fa-solid fa-cloud me-1"></i> NEON BULUT VERİTABANI AKTİF</span>
+                <select id="sektorSecici" class="form-select form-select-sm w-auto fw-bold">
+                    <option value="Kort">Tenis Kulübü</option>
+                    <option value="Oda">Psikolog / Seans</option>
+                    <option value="Poliklinik">Klinik Yönetimi</option>
+                </select>
+            </div>
+
+            <nav class="navbar navbar-dark">
+                <div class="container d-flex justify-content-between align-items-center">
+                    <div class="navbar-brand m-0" id="navbar-title">
+                        <i class="fa-solid fa-calendar-check text-success me-2"></i> KORT REZERVASYON
+                    </div>
+                    <button type="button" id="cikisBtn" class="btn btn-outline-danger btn-sm fw-bold border-2">
+                        <i class="fa-solid fa-power-off"></i> <span class="d-none d-md-inline">Çıkış</span>
+                    </button>
+                </div>
+            </nav>
+            
+            <div class="container mt-2">
+                <div class="d-flex justify-content-between align-items-center p-2 px-3 bg-white shadow-sm rounded-4 border-start border-4 border-primary">
+                    <div class="small text-muted text-uppercase">
+                        <i class="fa-solid fa-user-tie me-1"></i> <strong>{aktifRol}:</strong> {aktifKullanici}
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <!-- Ayarlar butonu sadece yöneticiye görünür -->
+                        {aktifRol === 'yonetici' && (
+                            <a href="/ayarlar" class="btn btn-sm btn-secondary fw-bold shadow-sm">
+                                <i class="fa-solid fa-gear"></i> Ayarlar
+                            </a>
+                        )}
+                        {aktifRol === 'yonetici' && (
+                            <a href="/istatistik" class="btn btn-sm btn-info text-white fw-bold shadow-sm">
+                                <i class="fa-solid fa-chart-pie me-1"></i> İstatistik
+                            </a>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div class="container mt-3">
+                <div class="date-navigator">
+                    <button type="button" id="dunBtn" class="date-btn"><i class="fa-solid fa-chevron-left"></i> Dün</button>
+                    <div style="position: relative; flex-grow: 1; text-align: center; cursor: pointer;" id="tarihSeciciAlan">
+                        <h3 class="current-date">
+                            <i class="fa-regular fa-calendar-days me-1"></i>
+                            <span id="gosterilenTarih"></span>
+                            <i class="fa-solid fa-caret-down ms-1" style="font-size: 0.8rem; opacity: 0.5;"></i>
+                        </h3>
+                        <input type="date" id="gizliTakvim" style="position: absolute; top: 0; left: 50%; opacity: 0; width: 1px; height: 1px; border: none; pointer-events: none;">
+                    </div>
+                    <button type="button" id="yarinBtn" class="date-btn">Yarın <i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+
+                <div class="table-container mb-5">
+                    <table class="table-matrix">
+                        <thead>
+                            <tr>
+                                <th style="width: 16%;"><i class="fa-regular fa-clock"></i> SAAT</th>
+                                <th style="width: 21%;" class="dinamik-alan">KORT 1</th>
+                                <th style="width: 21%;" class="dinamik-alan">KORT 2</th>
+                                <th style="width: 21%;" class="dinamik-alan">KORT 3</th>
+                                <th style="width: 21%;" class="dinamik-alan">KORT 4</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabloGövdesi">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- EKLEME/DÜZENLEME MODALI -->
+            <div class="modal fade" id="rezModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content rounded-4 border-0 shadow-lg">
+                        <div class="modal-header" style="background-color: var(--main-navy); color: white; border-radius: 15px 15px 0 0;">
+                            <h5 class="modal-title fw-bold" id="rezModalBaslik"><i class="fa-solid fa-calendar-plus text-success me-2"></i>Yeni Rezervasyon</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div class="alert alert-success py-3 mb-4 text-center fs-5" style="border-left: 5px solid var(--accent-green); background-color: #d1e7dd;">
+                                <div class="fw-bold mb-2 text-dark"><i class="fa-regular fa-calendar-check me-1"></i> <span id="modalTarihMetni"></span></div>
+                                <span class="badge bg-primary fs-6 me-2" id="modalSaatBadge"></span> 
+                                <span class="badge bg-dark fs-6" id="modalKortBadge"></span>
+                            </div>
+                            <form id="kayitFormu">
+                                <input type="hidden" id="editKayitId"> <!-- YENİ: DÜZENLEME ID'Sİ -->
+                                <input type="hidden" id="kayitSaat">
+                                <input type="hidden" id="kayitKort">
+                                
+                                <div class="mb-3 p-3 bg-light rounded-3 border border-secondary border-opacity-25">
+                                    <label class="form-label fw-bold text-dark small mb-2">Rezervasyon Türü</label>
+                                    <select id="kayitTuru" class="form-select border-secondary fw-bold text-secondary">
+                                        <option value="Genel Rezervasyon">Genel Rezervasyon (Kira/Antrenman)</option>
+                                        <option value="Özel Ders">Özel Ders / Danışmanlık</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3 position-relative">
+                                    <label class="form-label fw-bold text-muted small">Kimin Adına / Öğrenci Adı</label>
+                                    <input type="text" id="kayitAdi" class="form-control form-control-lg bg-light border-primary" placeholder="İsim Giriniz" autocomplete="off" required>
+                                    <ul id="isimOnerileri" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1000; top: 100%;"></ul>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold text-muted small"><i class="fa-brands fa-whatsapp text-success me-1"></i> Telefon (Bildirim İçin)</label>
+                                    <input type="tel" id="kayitTelefon" class="form-control form-control-lg bg-light" placeholder="05XX XXX XX XX">
+                                </div>
+
+                                <button type="submit" id="kaydetBtn" class="btn btn-success w-100 py-3 fw-bold fs-5 rounded-3 mt-2 shadow-sm">
+                                    <i class="fa-solid fa-check-double me-2"></i> KAYDET VE BİLDİR
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DETAY MODALI -->
+            <div class="modal fade" id="detayModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content rounded-4 border-0 shadow-lg">
+                        <div class="modal-header" style="background-color: var(--main-navy); color: white; border-radius: 15px 15px 0 0;">
+                            <h5 class="modal-title fw-bold"><i class="fa-solid fa-circle-info text-info me-2"></i>Rezervasyon Detayı</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div class="alert alert-secondary py-3 mb-4 text-center fs-5" style="border-left: 5px solid var(--main-navy); background-color: #e2e3e5;">
+                                <div class="fw-bold mb-2 text-dark"><i class="fa-regular fa-calendar-check me-1"></i> <span id="detayTarihMetni"></span></div>
+                                <span class="badge bg-primary fs-6 me-2" id="detaySaatBadge"></span> 
+                                <span class="badge bg-dark fs-6" id="detayKortBadge"></span>
+                            </div>
+                            <div class="mb-4 p-4 bg-light rounded-3 border border-secondary border-opacity-25">
+                                <p class="mb-3 fs-5"><strong><i class="fa-solid fa-user text-muted me-2"></i>Kimin Adına:</strong> <span id="detayKisi" class="fw-bold text-dark ms-1"></span></p>
+                                <p class="mb-3"><strong><i class="fa-solid fa-list-check text-muted me-2"></i>Tür:</strong> <span id="detayTur" class="text-secondary fw-bold ms-1"></span></p>
+                                <p class="mb-0"><strong><i class="fa-solid fa-user-tie text-muted me-2"></i>Ekleyen:</strong> <span id="detayEkleyen" class="text-secondary ms-1"></span></p>
+                            </div>
+                            <input type="hidden" id="silinecekKayitId">
+                            
+                            <!-- DÜZENLE BUTONU (YENİ EKLENDİ) -->
+                            <button type="button" id="duzenleBtn" onclick="window.kayitDuzenleModunaGec()" class="btn btn-warning w-100 py-3 fw-bold fs-5 rounded-3 mb-2 shadow-sm">
+                                <i class="fa-solid fa-pen-to-square me-2"></i> DÜZENLE
+                            </button>
+
+                            <!-- SİL BUTONU -->
+                            <button type="button" id="silBtn" onclick="window.kayitSilOnay()" class="btn btn-danger w-100 py-3 fw-bold fs-5 rounded-3 mt-1 shadow-sm">
+                                <i class="fa-solid fa-trash-can me-2"></i> REZERVASYONU İPTAL ET
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )}
+</Layout>
+
+<script is:inline>
+    window.guncelTarih = new Date();
+    window.isoTarihFormat = "";
+    window.myModal = null;
+    window.detayModal = null;
+    window.aktifIncelenenKayit = null; // Düzenleme için kaydı hafızada tutuyoruz
+    window.saatler = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+
+    document.addEventListener("DOMContentLoaded", function() {
+        // Oturum İşlemleri
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('loginBtn');
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> GİRİŞ YAPILIYOR...';
+                try {
+                    const res = await fetch('/api/login', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ kullaniciAdi: document.getElementById('kullaniciAdi').value, sifre: document.getElementById('sifre').value })
+                    });
+                    if (res.ok) window.location.reload(); 
+                    else { alert((await res.json()).error); btn.innerHTML = 'GİRİŞ YAP'; }
+                } catch(err) { alert("Sunucu hatası."); }
+            });
+        }
+
+        if (document.getElementById('cikisBtn')) {
+            document.getElementById('cikisBtn').addEventListener('click', async () => {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.reload();
+            });
+        }
+
+        if (document.getElementById('anaSistem')) {
+            window.aktifKullanici = document.getElementById('authVerileri').getAttribute('data-kullanici');
+            window.aktifRol = document.getElementById('authVerileri').getAttribute('data-rol');
+
+            baslatSistemi();
+
+            document.getElementById('dunBtn').addEventListener('click', () => tarihDegistir(-1));
+            document.getElementById('yarinBtn').addEventListener('click', () => tarihDegistir(1));
+            document.getElementById('tarihSeciciAlan').addEventListener('click', () => document.getElementById('gizliTakvim').showPicker());
+            document.getElementById('gizliTakvim').addEventListener('change', (e) => tarihiGuncelle(e.target.value));
+
+            document.getElementById('sektorSecici').addEventListener('change', (e) => {
+                const s = e.target.value;
+                document.querySelectorAll('.dinamik-alan').forEach((a, i) => a.innerText = `${s.toUpperCase()} ${i + 1}`);
+                document.getElementById('navbar-title').innerHTML = s === 'Kort' ? '<i class="fa-solid fa-calendar-check text-success me-2"></i> KORT REZERVASYON' : '<i class="fa-solid fa-couch text-success me-2"></i> SEANS/ODA';
+            });
+
+            // CRM ARAMASI
+            const isimInput = document.getElementById('kayitAdi');
+            const telefonInput = document.getElementById('kayitTelefon');
+            const oneriListesi = document.getElementById('isimOnerileri');
+            let aramaZamanlayici;
+
+            isimInput.addEventListener('input', (e) => {
+                clearTimeout(aramaZamanlayici);
+                if (e.target.value.length < 2) { oneriListesi.classList.add('d-none'); return; }
+                aramaZamanlayici = setTimeout(async () => {
+                    const res = await fetch(`/api/musteri-ara?q=${e.target.value}`);
+                    const musteriler = await res.json();
+                    oneriListesi.innerHTML = '';
+                    if (musteriler.length > 0) {
+                        musteriler.forEach(m => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item list-group-item-action cursor-pointer d-flex justify-content-between align-items-center';
+                            li.innerHTML = `<span class="fw-bold">${m.adSoyad}</span> <span class="badge bg-light text-dark border">${m.telefon}</span>`;
+                            li.addEventListener('click', () => {
+                                isimInput.value = m.adSoyad; telefonInput.value = m.telefon; oneriListesi.classList.add('d-none');
+                            });
+                            oneriListesi.appendChild(li);
+                        });
+                        oneriListesi.classList.remove('d-none');
+                    } else oneriListesi.classList.add('d-none');
+                }, 300);
+            });
+            document.addEventListener('click', (e) => { if(e.target !== isimInput && e.target !== oneriListesi) oneriListesi.classList.add('d-none'); });
+
+            // EKLEME VEYA DÜZENLEME (POST VEYA PUT)
+            document.getElementById('kayitFormu').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('kaydetBtn');
+                btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> İŞLENİYOR...';
+
+                const editId = document.getElementById('editKayitId').value;
+                const methodType = editId ? 'PUT' : 'POST';
+
+                try {
+                    const response = await fetch('/api/rezervasyon', {
+                        method: methodType,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            id: editId,
+                            kortNo: document.getElementById('kayitKort').value, 
+                            tarih: window.isoTarihFormat, 
+                            saat: document.getElementById('kayitSaat').value, 
+                            kisiAdi: document.getElementById('kayitAdi').value, 
+                            telefon: document.getElementById('kayitTelefon').value, 
+                            rezervasyonTuru: document.getElementById('kayitTuru').value, 
+                            ekleyen: window.aktifKullanici 
+                        })
+                    });
+
+                    if (response.ok) {
+                        if(window.myModal) window.myModal.hide();
+                        await tabloyuCiz();
+                        if(typeof Swal !== 'undefined') Swal.fire({ title: 'Başarılı!', text: editId ? 'Kayıt güncellendi.' : 'Kayıt eklendi.', icon: 'success', timer: 1500, showConfirmButton: false });
+                    } else {
+                        const err = await response.json();
+                        alert(err.error || "İşlem başarısız.");
+                    }
+                } catch (error) { alert("Veritabanına bağlanılamadı."); } 
+                finally { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check-double me-2"></i> KAYDET'; }
+            });
+        }
+    });
+
+    function baslatSistemi() {
+        if(typeof bootstrap !== 'undefined') {
+            window.myModal = new bootstrap.Modal(document.getElementById('rezModal'));
+            window.detayModal = new bootstrap.Modal(document.getElementById('detayModal'));
+        }
+        tarihiGuncelle(`${window.guncelTarih.getFullYear()}-${String(window.guncelTarih.getMonth() + 1).padStart(2, '0')}-${String(window.guncelTarih.getDate()).padStart(2, '0')}`);
+    }
+    function tarihDegistir(gf) { window.guncelTarih.setDate(window.guncelTarih.getDate() + gf); tarihiGuncelle(`${window.guncelTarih.getFullYear()}-${String(window.guncelTarih.getMonth() + 1).padStart(2, '0')}-${String(window.guncelTarih.getDate()).padStart(2, '0')}`); }
+    
+    function tarihiGuncelle(val) {
+        if(!val) return;
+        window.isoTarihFormat = val;
+        const [yil, ay, gun] = val.split('-');
+        window.guncelTarih = new Date(yil, ay - 1, gun);
+        document.getElementById('gizliTakvim').value = window.isoTarihFormat;
+        document.getElementById('gosterilenTarih').innerText = window.guncelTarih.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'long' });
+        tabloyuCiz();
+    }
+
+    async function tabloyuCiz() {
+        const tbody = document.getElementById('tabloGövdesi');
+        if(!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted fw-bold"><i class="fa-solid fa-spinner fa-spin me-2"></i>Neon Veritabanından Çekiliyor...</td></tr>';
+        
+        try {
+            const res = await fetch(`/api/rezervasyon?tarih=${window.isoTarihFormat}`);
+            const dbKayitlar = await res.json();
+            const kayitMap = {};
+            if(Array.isArray(dbKayitlar)) dbKayitlar.forEach(k => { kayitMap[`${k.saat}_${k.alanId}`] = k; });
+            tbody.innerHTML = ""; 
+
+            window.saatler.forEach(saat => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td class="time-cell">${saat}</td>`;
+                for (let kort = 1; kort <= 4; kort++) {
+                    let mevcutKayit = kayitMap[`${saat}_${kort}`];
+                    if (mevcutKayit) {
+                        let td = document.createElement('td');
+                        if (window.aktifRol === 'antrenor' && mevcutKayit.notlar !== window.aktifKullanici) {
+                            td.style.backgroundColor = "#e9ecef"; td.style.cursor = "not-allowed";
+                            td.innerHTML = `<div class="d-flex flex-column justify-content-center align-items-center h-100 opacity-50"><i class="fa-solid fa-lock mb-1"></i><span class="fw-bold small">Dolu</span></div>`;
+                            td.addEventListener('click', () => Swal.fire('Gizli Bilgi', 'Bu ders başka bir eğitmene aittir.', 'warning'));
+                        } else {
+                            td.className = 'cell-full';
+                            td.innerHTML = `<span class="rez-name">${mevcutKayit.kisiAdi}</span><span class="rez-teacher"><i class="fa-solid fa-user-tie me-1" style="font-size: 0.6rem;"></i>${mevcutKayit.notlar}</span><span class="rez-note"><i class="fa-solid fa-circle-info me-1"></i>${mevcutKayit.rezervasyonTuru}</span>`;
+                            td.addEventListener('click', () => window.detayModalAc(mevcutKayit, kort, saat));
+                        }
+                        tr.appendChild(td);
+                    } else {
+                        let td = document.createElement('td');
+                        td.className = 'cell-empty'; td.innerHTML = `<i class="fa-solid fa-plus"></i>`;
+                        td.addEventListener('click', () => window.ekleModalAc(kort, saat));
+                        tr.appendChild(td);
+                    }
+                }
+                tbody.appendChild(tr);
+            });
+        } catch (err) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation me-2"></i>Neon veritabanı bağlantı hatası!</td></tr>'; }
+    }
+
+    // YENİ EKLEME MODUNA GEÇİŞ
+    window.ekleModalAc = function(kortNo, saat) {
+        document.getElementById('editKayitId').value = ""; // ID temizle (POST Modu)
+        document.getElementById('kayitSaat').value = saat;
+        document.getElementById('kayitKort').value = kortNo;
+        document.getElementById('kayitAdi').value = ""; 
+        document.getElementById('kayitTelefon').value = ""; 
+        document.getElementById('kaydetBtn').innerHTML = '<i class="fa-solid fa-check-double me-2"></i> KAYDET VE BİLDİR';
+        document.getElementById('rezModalBaslik').innerHTML = '<i class="fa-solid fa-calendar-plus text-success me-2"></i>Yeni Rezervasyon';
+        
+        const secilenSektor = document.getElementById('sektorSecici').value;
+        const alanIsmi = secilenSektor === 'Kort' ? 'Kort' : (secilenSektor === 'Oda' ? 'Oda' : 'Bölüm');
+        
+        document.getElementById('modalKortBadge').innerText = alanIsmi + ': ' + kortNo;
+        document.getElementById('modalSaatBadge').innerText = 'Saat: ' + saat;
+        document.getElementById('modalTarihMetni').innerText = document.getElementById('gosterilenTarih').innerText;
+        
+        if(window.myModal) window.myModal.show();
+    };
+
+    window.detayModalAc = function(kayit, kortNo, saat) {
+        window.aktifIncelenenKayit = kayit; // Düzenleme için hafızaya al
+        const s = document.getElementById('sektorSecici').value;
+        const alanIsmi = s === 'Kort' ? 'Kort' : (s === 'Oda' ? 'Oda' : 'Bölüm');
+        
+        document.getElementById('detayKortBadge').innerText = alanIsmi + ': ' + kortNo;
+        document.getElementById('detaySaatBadge').innerText = 'Saat: ' + saat;
+        document.getElementById('detayTarihMetni').innerText = document.getElementById('gosterilenTarih').innerText;
+        document.getElementById('detayKisi').innerText = kayit.kisiAdi;
+        document.getElementById('detayTur').innerText = kayit.rezervasyonTuru || '-';
+        document.getElementById('detayEkleyen').innerText = kayit.notlar;
+        document.getElementById('silinecekKayitId').value = kayit.id;
+        if(window.detayModal) window.detayModal.show();
+    };
+
+    // DÜZENLEME MODUNA GEÇİŞ (Formu açar ve bilgileri doldurur)
+    window.kayitDuzenleModunaGec = function() {
+        if(window.detayModal) window.detayModal.hide(); // Detayı kapat
+
+        const kayit = window.aktifIncelenenKayit;
+        document.getElementById('editKayitId').value = kayit.id; // ID eklendi (PUT Modu)
+        document.getElementById('kayitSaat').value = kayit.saat;
+        document.getElementById('kayitKort').value = kayit.alanId;
+        document.getElementById('kayitAdi').value = kayit.kisiAdi;
+        document.getElementById('kayitTelefon').value = kayit.telefon || "";
+        document.getElementById('kayitTuru').value = kayit.rezervasyonTuru || "Genel Rezervasyon";
+        
+        document.getElementById('modalKortBadge').innerText = "Kort/Oda: " + kayit.alanId;
+        document.getElementById('modalSaatBadge').innerText = 'Saat: ' + kayit.saat;
+        document.getElementById('modalTarihMetni').innerText = document.getElementById('gosterilenTarih').innerText;
+
+        document.getElementById('rezModalBaslik').innerHTML = '<i class="fa-solid fa-pen-to-square text-warning me-2"></i>Rezervasyonu Düzenle';
+        document.getElementById('kaydetBtn').innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> GÜNCELLE';
+        
+        if(window.myModal) window.myModal.show(); // Formu aç
+    };
+
+    window.kayitSilOnay = async function() {
+        const id = document.getElementById('silinecekKayitId').value;
+        if(confirm("İptal etmek istediğinize emin misiniz?")) {
+            document.getElementById('silBtn').innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> SİLİNİYOR...';
+            try {
+                const response = await fetch(`/api/rezervasyon?id=${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    if(window.detayModal) window.detayModal.hide();
+                    await tabloyuCiz();
+                } else alert("Hata oluştu.");
+            } catch(e) { alert("Sunucu hatası."); } 
+            finally { document.getElementById('silBtn').innerHTML = '<i class="fa-solid fa-trash-can me-2"></i> İPTAL ET'; }
+        }
+    };
+</script>

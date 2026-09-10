@@ -1,0 +1,385 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// Güvenlik Kontrolü
+if (!Astro.cookies.has('auth_token')) {
+    return Astro.redirect('/');
+}
+---
+
+<Layout title="Muhasebe ve İstatistik | Kort Rezervasyon">
+
+    <div class="bg-dark text-white p-2 d-flex justify-content-between align-items-center" style="border-bottom: 3px solid var(--accent-green);">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span class="fw-bold"><i class="fa-solid fa-chart-pie text-success me-2"></i> PERFORMANS VE FİNANS PANOSU</span>
+            <a href="/" class="btn btn-sm btn-outline-light"><i class="fa-solid fa-arrow-left me-1"></i> Panele Dön</a>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        
+        <!-- FİLTRELEME VE İNDİRME ÇUBUĞU -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-start border-4 border-primary rounded-4 bg-white p-3 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center flex-wrap gap-3">
+                        <span class="fw-bold text-muted"><i class="fa-solid fa-filter me-1"></i> Veri Aralığı:</span>
+                        <select id="zamanFiltresi" class="form-select form-select-sm w-auto fw-bold shadow-sm border-secondary">
+                            <option value="hepsi">Tüm Zamanlar</option>
+                            <option value="buAy">Bu Ay</option>
+                            <option value="gecenAy">Geçen Ay</option>
+                            <option value="son7">Son 7 Gün</option>
+                            <option value="ozel">Özel Tarih Aralığı...</option>
+                        </select>
+                        
+                        <!-- Özel Tarih Seçici -->
+                        <div id="ozelTarihAlan" class="d-none align-items-center gap-2">
+                            <input type="date" id="baslangicTarih" class="form-control form-control-sm border-secondary">
+                            <span class="text-muted fw-bold">-</span>
+                            <input type="date" id="bitisTarih" class="form-control form-control-sm border-secondary">
+                            <button id="ozelTarihUygula" class="btn btn-sm btn-primary fw-bold px-3">Uygula</button>
+                        </div>
+                    </div>
+
+                    <!-- EXCEL/CSV İNDİRME BUTONU (YENİ) -->
+                    <button id="csvIndirBtn" class="btn btn-sm btn-success fw-bold px-3 shadow-sm" onclick="window.csvIndir()">
+                        <i class="fa-solid fa-file-excel me-1"></i> CSV Olarak İndir
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ÜST ÖZET KARTLARI (YÜZDE VE CİRO EKLENTİLİ) -->
+        <div class="row mb-4">
+            <!-- 1. Toplam Rezervasyon -->
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 rounded-4 bg-primary text-white h-100">
+                    <div class="card-body">
+                        <h6 class="text-uppercase mb-2" style="opacity: 0.8;"><i class="fa-solid fa-calendar-check me-2"></i>Toplam Rezervasyon</h6>
+                        <h2 class="display-5 fw-bold mb-0" id="totalRez">0</h2>
+                        <div class="mt-2 small" style="opacity: 0.9;"><i class="fa-solid fa-fire me-1"></i> En Yoğun: <span id="peakHour" class="fw-bold">-</span></div>
+                    </div>
+                </div>
+            </div>
+            <!-- 2. Özel Ders -->
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 rounded-4 bg-success text-white h-100">
+                    <div class="card-body">
+                        <h6 class="text-uppercase mb-2" style="opacity: 0.8;"><i class="fa-solid fa-graduation-cap me-2"></i>Özel Ders</h6>
+                        <h2 class="display-5 fw-bold mb-0" id="totalOzel">0</h2>
+                        <div class="mt-2 small" style="opacity: 0.9;">
+                            <i class="fa-solid fa-chart-pie me-1"></i> Toplam içindeki payı: <span id="yuzdeOzel" class="fw-bold badge bg-white text-success ms-1">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 3. Genel Kira -->
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 rounded-4 text-white h-100" style="background-color: var(--main-navy);">
+                    <div class="card-body">
+                        <h6 class="text-uppercase mb-2" style="opacity: 0.8;"><i class="fa-solid fa-users me-2"></i>Genel Kira</h6>
+                        <h2 class="display-5 fw-bold mb-0" id="totalGenel">0</h2>
+                        <div class="mt-2 small" style="opacity: 0.9;">
+                            <i class="fa-solid fa-chart-pie me-1"></i> Toplam içindeki payı: <span id="yuzdeGenel" class="fw-bold badge bg-white text-dark ms-1">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 4. Tahmini Gelir (YENİ) -->
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 rounded-4 bg-info text-white h-100">
+                    <div class="card-body">
+                        <h6 class="text-uppercase mb-2" style="opacity: 0.8;"><i class="fa-solid fa-wallet me-2"></i>Tahmini Gelir (Ciro)</h6>
+                        <h2 class="display-5 fw-bold mb-0" id="totalCiro">0 ₺</h2>
+                        <div class="mt-2 small" style="opacity: 0.9;">
+                            <i class="fa-solid fa-circle-info me-1"></i> Özel: 800₺, Genel: 400₺ (Tahmini)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRAFİKLER -->
+        <div class="row">
+            <!-- Sol: Kortlara/Odalara Göre Dağılım (Pasta) -->
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm border-0 rounded-4 h-100">
+                    <div class="card-header bg-white border-0 pt-4 pb-0">
+                        <h5 class="fw-bold text-secondary"><i class="fa-solid fa-chart-pie me-2"></i>Alan Dağılımı</h5>
+                    </div>
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <div id="alanGrafik" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sağ: Saatlik Yoğunluk (Sütun) -->
+            <div class="col-md-8 mb-4">
+                <div class="card shadow-sm border-0 rounded-4 h-100">
+                    <div class="card-header bg-white border-0 pt-4 pb-0">
+                        <h5 class="fw-bold text-secondary"><i class="fa-solid fa-chart-column me-2"></i>Saatlik Yoğunluk Analizi</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="saatGrafik" style="width: 100%; min-height: 300px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALT SATIR: HAFTANIN GÜNLERİ TREND GRAFİĞİ (YENİ) -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="card shadow-sm border-0 rounded-4">
+                    <div class="card-header bg-white border-0 pt-4 pb-0">
+                        <h5 class="fw-bold text-secondary"><i class="fa-solid fa-chart-line me-2"></i>Haftanın Günleri (Yoğunluk Trendi)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="haftaGrafik" style="width: 100%; min-height: 300px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</Layout>
+
+<!-- ApexCharts CDN -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<script is:inline>
+    // Global değişkenler
+    let tumVeriler = [];
+    let aktifFiltreliVeri = []; // CSV indirme işlemi için
+    let alanChartInst = null;
+    let saatChartInst = null;
+    let haftaChartInst = null; // Yeni Grafik
+    const guncelTarih = new Date();
+
+    document.addEventListener("DOMContentLoaded", async function() {
+        try {
+            // Ay ismini dinamik yapalım
+            const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+            const mevcutAy = guncelTarih.getMonth();
+            
+            document.querySelector('#zamanFiltresi option[value="buAy"]').innerText = `Bu Ay (${aylar[mevcutAy]})`;
+            document.querySelector('#zamanFiltresi option[value="gecenAy"]').innerText = `Geçen Ay (${aylar[mevcutAy === 0 ? 11 : mevcutAy - 1]})`;
+
+            // Verileri sunucudan 1 kere çekiyoruz
+            const response = await fetch(`/api/rezervasyon?tarih=hepsi`);
+            tumVeriler = await response.json();
+
+            // İlk açılışta tüm verileri göster
+            grafikleriGuncelle(tumVeriler);
+
+            // Filtre tetikleyicileri
+            document.getElementById('zamanFiltresi').addEventListener('change', filtreUygula);
+            document.getElementById('ozelTarihUygula').addEventListener('click', filtreUygula);
+
+        } catch (error) {
+            console.error("Veri çekme hatası:", error);
+        }
+    });
+
+    function filtreUygula() {
+        const filtreTuru = document.getElementById('zamanFiltresi').value;
+        const ozelTarihAlan = document.getElementById('ozelTarihAlan');
+        
+        let filtrelenmis = [];
+
+        if (filtreTuru === 'ozel') {
+            ozelTarihAlan.classList.remove('d-none');
+            ozelTarihAlan.classList.add('d-flex');
+        } else {
+            ozelTarihAlan.classList.add('d-none');
+            ozelTarihAlan.classList.remove('d-flex');
+        }
+
+        if (filtreTuru === 'hepsi') {
+            filtrelenmis = tumVeriler;
+        } 
+        else if (filtreTuru === 'buAy') {
+            const ayKodu = String(guncelTarih.getMonth() + 1).padStart(2, '0');
+            const yilKodu = guncelTarih.getFullYear();
+            const aranan = `${yilKodu}-${ayKodu}`;
+            filtrelenmis = tumVeriler.filter(k => k.tarih.startsWith(aranan));
+        }
+        else if (filtreTuru === 'gecenAy') {
+            let gecenAy = guncelTarih.getMonth();
+            let yilKodu = guncelTarih.getFullYear();
+            if (gecenAy === 0) { gecenAy = 12; yilKodu -= 1; }
+            const ayKodu = String(gecenAy).padStart(2, '0');
+            const aranan = `${yilKodu}-${ayKodu}`;
+            filtrelenmis = tumVeriler.filter(k => k.tarih.startsWith(aranan));
+        }
+        else if (filtreTuru === 'son7') {
+            const yediGunOnce = new Date();
+            yediGunOnce.setDate(yediGunOnce.getDate() - 7);
+            
+            filtrelenmis = tumVeriler.filter(k => {
+                const kayitTarihi = new Date(k.tarih);
+                return kayitTarihi >= yediGunOnce && kayitTarihi <= guncelTarih;
+            });
+        }
+        else if (filtreTuru === 'ozel') {
+            const bas = document.getElementById('baslangicTarih').value;
+            const bit = document.getElementById('bitisTarih').value;
+            if(!bas || !bit) return; 
+
+            const basTarih = new Date(bas);
+            const bitTarih = new Date(bit);
+            filtrelenmis = tumVeriler.filter(k => {
+                const kayitTarihi = new Date(k.tarih);
+                return kayitTarihi >= basTarih && kayitTarihi <= bitTarih;
+            });
+        }
+
+        grafikleriGuncelle(filtrelenmis);
+    }
+
+    function grafikleriGuncelle(veriSeti) {
+        aktifFiltreliVeri = veriSeti; // CSV için hafızada tutuyoruz
+
+        let ozelDers = 0;
+        let genelKira = 0;
+        const alanSayaci = { 1: 0, 2: 0, 3: 0, 4: 0 };
+        const saatSayaci = {};
+        const haftaninGunleri = [0, 0, 0, 0, 0, 0, 0]; // Pzt, Sal, Çar, Per, Cum, Cmt, Paz
+
+        // 1. DÖNGÜ: Verileri hesapla
+        veriSeti.forEach(k => {
+            // Tür
+            if (k.rezervasyonTuru === 'Özel Ders') ozelDers++;
+            else genelKira++;
+
+            // Alan
+            if(alanSayaci[k.alanId] !== undefined) alanSayaci[k.alanId]++;
+            
+            // Saat
+            const saat = k.saat.split(':')[0]; 
+            saatSayaci[saat] = (saatSayaci[saat] || 0) + 1;
+
+            // Gün Analizi (Pazartesi=0, Pazar=6 formuna çevirme)
+            const d = new Date(k.tarih);
+            let dayIndex = d.getDay(); // JS'te Pazar 0'dır
+            dayIndex = dayIndex === 0 ? 6 : dayIndex - 1; 
+            haftaninGunleri[dayIndex]++;
+        });
+
+        // Matematiksel Hesaplamalar (Yüzde ve Gelir)
+        const toplamRez = veriSeti.length || 1; // 0'a bölünme hatasını engeller
+        const yuzdeOzel = Math.round((ozelDers / toplamRez) * 100);
+        const yuzdeGenel = Math.round((genelKira / toplamRez) * 100);
+        
+        // Ciro: Özel Ders 800₺, Kira 400₺ varsayımı
+        const tahminiCiro = (ozelDers * 800) + (genelKira * 400);
+
+        // En yoğun saati bul
+        let enYogunSaat = "-";
+        let maxSaat = 0;
+        for (const [saat, sayi] of Object.entries(saatSayaci)) {
+            if (sayi > maxSaat) { maxSaat = sayi; enYogunSaat = `${saat}:00`; }
+        }
+
+        // --- KARTLARI GÜNCELLEME ---
+        document.getElementById('totalRez').innerText = veriSeti.length;
+        document.getElementById('peakHour').innerText = enYogunSaat;
+        
+        document.getElementById('totalOzel').innerText = ozelDers;
+        document.getElementById('yuzdeOzel').innerText = `%${yuzdeOzel}`;
+        
+        document.getElementById('totalGenel').innerText = genelKira;
+        document.getElementById('yuzdeGenel').innerText = `%${yuzdeGenel}`;
+        
+        document.getElementById('totalCiro').innerText = tahminiCiro.toLocaleString('tr-TR') + " ₺";
+
+        // --- 1. ALAN (PASTA) GRAFİĞİ ---
+        const alanVerileri = Object.values(alanSayaci);
+        if (alanChartInst) {
+            alanChartInst.updateSeries(alanVerileri);
+        } else {
+            const alanOptions = {
+                series: alanVerileri,
+                labels: ['Alan 1', 'Alan 2', 'Alan 3', 'Alan 4'],
+                chart: { type: 'donut', height: 300 },
+                colors: ['#002147', '#28a745', '#17a2b8', '#ffc107'],
+                dataLabels: { enabled: true },
+                legend: { position: 'bottom' }
+            };
+            alanChartInst = new ApexCharts(document.querySelector("#alanGrafik"), alanOptions);
+            alanChartInst.render();
+        }
+
+        // --- 2. SAAT SÜTUN GRAFİĞİ ---
+        const tumSaatler = ["08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"];
+        const saatVerileri = tumSaatler.map(s => saatSayaci[s] || 0);
+        const saatEtiketleri = tumSaatler.map(s => `${s}:00`);
+
+        if (saatChartInst) {
+            saatChartInst.updateSeries([{ data: saatVerileri }]);
+        } else {
+            const saatOptions = {
+                series: [{ name: 'Rezervasyon', data: saatVerileri }],
+                chart: { type: 'bar', height: 300, toolbar: { show: false } },
+                colors: ['#002147'],
+                plotOptions: { bar: { borderRadius: 4, columnWidth: '60%' } },
+                dataLabels: { enabled: false },
+                xaxis: { categories: saatEtiketleri },
+                yaxis: { title: { text: 'Adet' }, labels: { formatter: (val) => Math.floor(val) } }
+            };
+            saatChartInst = new ApexCharts(document.querySelector("#saatGrafik"), saatOptions);
+            saatChartInst.render();
+        }
+
+        // --- 3. HAFTANIN GÜNLERİ (ÇİZGİ) GRAFİĞİ ---
+        if (haftaChartInst) {
+            haftaChartInst.updateSeries([{ data: haftaninGunleri }]);
+        } else {
+            const haftaOptions = {
+                series: [{ name: 'Rezervasyonlar', data: haftaninGunleri }],
+                chart: { type: 'area', height: 300, toolbar: { show: false } },
+                colors: ['#17a2b8'],
+                fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.2, stops: [0, 90, 100] } },
+                dataLabels: { enabled: true },
+                stroke: { curve: 'smooth', width: 3 },
+                xaxis: { categories: ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'] },
+                yaxis: { labels: { formatter: (val) => Math.floor(val) } }
+            };
+            haftaChartInst = new ApexCharts(document.querySelector("#haftaGrafik"), haftaOptions);
+            haftaChartInst.render();
+        }
+    }
+
+    // --- CSV (EXCEL) İNDİRME FONKSİYONU ---
+    window.csvIndir = function() {
+        if(!aktifFiltreliVeri || aktifFiltreliVeri.length === 0) {
+            alert("İndirilecek veri bulunamadı. Lütfen filtreyi değiştirin.");
+            return;
+        }
+
+        // Türkçe karakter bozulmasını engellemek için BOM ekliyoruz (\uFEFF)
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+        
+        // Başlıklar
+        csvContent += "Tarih,Saat,Kort/Oda No,Kişi Adı,Rezervasyon Türü,Ekleyen\n";
+        
+        // Verileri CSV formatına dönüştür
+        aktifFiltreliVeri.forEach(k => {
+            // İsimlerde virgül varsa CSV kırılmasın diye çift tırnak içine alıyoruz
+            const row = `${k.tarih},${k.saat},${k.alanId},"${k.kisiAdi}","${k.rezervasyonTuru}","${k.notlar}"`;
+            csvContent += row + "\n";
+        });
+
+        // Tarayıcı üzerinden otomatik dosya indirmesini tetikle
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        
+        // Dosya adı dinamik: 'rezervasyon_raporu_2026.csv' gibi
+        const zamanTipi = document.getElementById('zamanFiltresi').value;
+        link.setAttribute("download", `rezervasyon_raporu_${zamanTipi}.csv`);
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+</script>
