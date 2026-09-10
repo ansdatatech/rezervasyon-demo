@@ -7,43 +7,47 @@ import { SignJWT } from 'jose';
 
 export const prerender = false;
 
-// Güvenlik anahtarı (Normalde bu da .env içine konur)
-const SECRET = new TextEncoder().encode("cok-gizli-super-sifre-12345"); 
+// BURASI ÇOK ÖNEMLİ: Vercel'deki JWT_SECRET anahtarını okuyoruz
+const JWT_SECRET = new TextEncoder().encode(import.meta.env.JWT_SECRET || 'gizli_anahtar_degistir_lutfen');
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async ({ request }) => {
     try {
         const body = await request.json();
         const { kullaniciAdi, sifre } = body;
 
-        // 1. Kullanıcıyı veritabanında bul
-        const user = await db.select().from(kullanicilar).where(eq(kullanicilar.kullaniciAdi, kullaniciAdi)).limit(1);
-
-        if (user.length === 0) {
-            return new Response(JSON.stringify({ error: "Kullanıcı bulunamadı" }), { status: 401 });
+        // Kullanıcıyı bul
+        const kullanici = await db.select().from(kullanicilar).where(eq(kullanicilar.kullaniciAdi, kullaniciAdi)).limit(1);
+        
+        if (kullanici.length === 0) {
+            return new Response(JSON.stringify({ error: "Kullanıcı bulunamadı." }), { status: 401 });
         }
 
-        // 2. Kriptolu şifreyi doğrula
-        const isMatch = await bcrypt.compare(sifre, user[0].sifreHash);
-        if (!isMatch) {
-            return new Response(JSON.stringify({ error: "Hatalı şifre" }), { status: 401 });
+        // Şifre doğrulama (bcrypt)
+        const sifreDogruMu = await bcrypt.compare(sifre, kullanici[0].sifreHash);
+        if (!sifreDogruMu) {
+            return new Response(JSON.stringify({ error: "Hatalı şifre." }), { status: 401 });
         }
 
-        // 3. JWT (Güvenli Oturum Token'ı) Oluştur
-        const token = await new SignJWT({ id: user[0].id, kullaniciAdi: user[0].kullaniciAdi, rol: user[0].rol })
-            .setProtectedHeader({ alg: 'HS256' })
-            .setExpirationTime('24h') // Oturum 24 saat geçerli
-            .sign(SECRET);
+        // Başarılı ise VERCEL'DEKİ ŞİFREYLE JWT Token üret
+        const token = await new SignJWT({ 
+            kullaniciAdi: kullanici[0].kullaniciAdi, 
+            rol: kullanici[0].rol 
+        })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime('24h') // 24 saat geçerli
+        .sign(JWT_SECRET);
 
-        // 4. Token'ı Tarayıcı Çerezlerine (Cookie) kaydet
-        cookies.set('auth_token', token, {
-            httpOnly: true, // JavaScript ile çalınmayı engeller (XSS koruması)
-            path: '/',
-            secure: true,
-            maxAge: 60 * 60 * 24 
+        // Güvenli Çerez (Cookie) olarak tarayıcıya gönder
+        return new Response(JSON.stringify({ success: true, rol: kullanici[0].rol }), {
+            status: 200,
+            headers: {
+                'Set-Cookie': `auth_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`,
+                'Content-Type': 'application/json'
+            }
         });
-
-        return new Response(JSON.stringify({ success: true, user: user[0].kullaniciAdi }), { status: 200 });
+        
     } catch (error: any) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+        return new Response(JSON.stringify({ error: "Giriş işlemi başarısız." }), { status: 500 });
     }
 };
