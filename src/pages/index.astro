@@ -19,7 +19,7 @@ if (token) {
 }
 ---
 
-<Layout title="Kort Rezervasyon | Yönetim Paneli">
+<Layout title="Rezervasyon Sistemi | Yönetim Paneli">
 
     {!isLoggedIn ? (
         <div id="loginEkrani" class="position-fixed w-100 h-100 d-flex justify-content-center align-items-center" style="background-color: var(--main-navy); z-index: 9999; top: 0; left: 0;">
@@ -48,7 +48,7 @@ if (token) {
             <div id="authVerileri" data-kullanici={aktifKullanici} data-rol={aktifRol} class="d-none"></div>
 
             <div class="bg-dark text-white p-2 d-flex justify-content-center align-items-center gap-3" style="border-bottom: 3px solid var(--accent-green);">
-                <span class="badge bg-primary text-white"><i class="fa-solid fa-cloud me-1"></i> NEON BULUT VERİTABANI AKTİF</span>
+                <span class="badge bg-primary text-white"><i class="fa-solid fa-cloud me-1"></i> VERİTABANI AKTİF</span>
                 <select id="sektorSecici" class="form-select form-select-sm w-auto fw-bold">
                     <option value="Kort">Tenis Kulübü</option>
                     <option value="Oda">Psikolog / Seans</option>
@@ -345,7 +345,7 @@ if (token) {
     async function tabloyuCiz() {
         const tbody = document.getElementById('tabloGövdesi');
         if(!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted fw-bold"><i class="fa-solid fa-spinner fa-spin me-2"></i>Neon Veritabanından Çekiliyor...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted fw-bold"><i class="fa-solid fa-spinner fa-spin me-2"></i>Veritabanından Çekiliyor...</td></tr>';
         
         try {
             const res = await fetch(`/api/rezervasyon?tarih=${window.isoTarihFormat}`);
