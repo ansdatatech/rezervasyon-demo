@@ -468,6 +468,30 @@ if (token) {
             finally { document.getElementById('silBtn').innerHTML = '<i class="fa-solid fa-trash-can me-2"></i> İPTAL ET'; }
         }
     };
+    
+    // Geçmiş tarihli günlerde (+) butonlarını sekreter ve antrenörlere kapatır
+    function gecmisTarihButonKontrolu() {
+        const rol = localStorage.getItem('kullaniciRol') || 'sekreter'; 
+        // Not: Eğer rolü localstorage'da tutmuyorsan, sadece butonları herkes için de gizleyebilirsin.
+        
+        const tarihInput = document.getElementById('tarihSecici'); // Tarih seçtiğin inputun ID'si
+        if(!tarihInput) return;
+
+        const seciliTarih = tarihInput.value;
+        const simdi = new Date();
+        const bugunTarihi = new Date(simdi.getTime() - (simdi.getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
+
+        // Rezervasyon ekleme modalını açan tüm butonları bul
+        const ekleButonlari = document.querySelectorAll('button[data-bs-target="#rezervasyonModal"]');
+
+        if (seciliTarih < bugunTarihi && rol !== 'yonetici') {
+            // Geçmişse butonları gizle
+            ekleButonlari.forEach(btn => btn.style.visibility = 'hidden');
+        } else {
+            // Bugün veya gelecekse geri göster
+            ekleButonlari.forEach(btn => btn.style.visibility = 'visible');
+        }
+    }
 </script>
 
 <!-- ŞİFRE DEĞİŞTİRME MODALI -->
