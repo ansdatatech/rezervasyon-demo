@@ -58,6 +58,17 @@ export const POST: APIRoute = async ({ request }) => {
 
     try {
         const body = await request.json();
+	// --- GEÇMİŞ TARİH KONTROLÜ ---
+        // Türkiye saatine göre bugünün tarihini "YYYY-MM-DD" formatında alıyoruz
+        const simdi = new Date();
+        const turkiyeSaatFarki = simdi.getTimezoneOffset() * 60000;
+        const bugunTarihi = new Date(simdi.getTime() - turkiyeSaatFarki).toISOString().slice(0, 10);
+
+        // Eğer seçilen tarih bugünden küçükse VE kişi yönetici değilse engelle!
+        if (body.tarih < bugunTarihi && kimlik.rol !== 'yonetici') {
+            return new Response(JSON.stringify({ error: "Geçmiş tarihlere yeni rezervasyon eklenemez!" }), { status: 400 });
+        }
+        // -----------------------------
 
         // GÜVENLİK KİLİDİ: Çifte Rezervasyon Kontrolü
         const cakisiyorMu = await db.select().from(rezervasyonlar).where(
