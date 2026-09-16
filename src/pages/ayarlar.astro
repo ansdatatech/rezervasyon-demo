@@ -93,6 +93,29 @@ try {
 
         </div>
     </div>
+
+    <!-- YÖNETİCİ ŞİFRE SIFIRLAMA MODALI -->
+    <div class="modal fade" id="adminSifreModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header bg-warning rounded-top-4">
+                    <h6 class="modal-title fw-bold text-dark"><i class="fa-solid fa-unlock-keyhole me-2"></i>Şifre Sıfırla</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="small text-muted mb-3"><strong><span id="sifirlanacakKisi"></span></strong> adlı kullanıcının şifresini yeniliyorsunuz.</p>
+                    <form id="adminSifreFormu">
+                        <input type="hidden" id="sifirlanacakId">
+                        <div class="mb-3">
+                            <input type="password" id="yeniSifreAdmin" class="form-control" placeholder="Yeni Şifre Belirleyin" required minlength="6">
+                        </div>
+                        <button type="submit" id="adminSifreKaydetBtn" class="btn btn-dark w-100 fw-bold">ŞİFREYİ GÜNCELLE</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </Layout>
 
 <script is:inline>
@@ -133,6 +156,35 @@ try {
                 btn.innerHTML = 'HESAP OLUŞTUR';
             }
         });
+
+        // YÖNETİCİ ŞİFRE SIFIRLAMA İŞLEMİ
+        document.getElementById('adminSifreFormu').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('adminSifreKaydetBtn');
+            btn.innerHTML = 'BEKLEYİN...'; btn.disabled = true;
+            
+            try {
+                const res = await fetch('/api/kullanici', {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id: document.getElementById('sifirlanacakId').value,
+                        yeniSifre: document.getElementById('yeniSifreAdmin').value
+                    })
+                });
+                
+                if(res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('adminSifreModal')).hide();
+                    alert("Kullanıcının şifresi başarıyla sıfırlandı!");
+                } else {
+                    alert("Hata oluştu. Sadece yöneticiler şifre sıfırlayabilir.");
+                }
+            } catch(err) { 
+                alert("Sunucu hatası."); 
+            } finally { 
+                btn.innerHTML = 'ŞİFREYİ GÜNCELLE'; 
+                btn.disabled = false; 
+            }
+        });
     });
 
     async function personelleriGetir() {
@@ -155,7 +207,10 @@ try {
                     <td class="text-muted">@${k.kullaniciAdi}</td>
                     <td>${rolBadge}</td>
                     <td class="text-end">
-                        <button class="btn btn-sm btn-outline-danger" onclick="personelSil(${k.id}, '${k.adSoyad}')">
+                        <button class="btn btn-sm btn-outline-warning me-1 shadow-sm" onclick="sifreSifirlaModalAc(${k.id}, '${k.adSoyad}')" title="Şifreyi Sıfırla">
+                            <i class="fa-solid fa-key"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="personelSil(${k.id}, '${k.adSoyad}')" title="Kullanıcıyı Sil">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </td>
@@ -166,6 +221,14 @@ try {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Bağlantı hatası!</td></tr>';
         }
     }
+
+    // Modal açma fonksiyonunu global window objesine bağlıyoruz ki satır içi onclick bulabilsin
+    window.sifreSifirlaModalAc = function(id, adSoyad) {
+        document.getElementById('sifirlanacakId').value = id;
+        document.getElementById('sifirlanacakKisi').innerText = adSoyad;
+        document.getElementById('yeniSifreAdmin').value = '';
+        new bootstrap.Modal(document.getElementById('adminSifreModal')).show();
+    };
 
     window.personelSil = async function(id, adSoyad) {
         if(confirm(`${adSoyad} adlı kişinin sisteme giriş yetkisini iptal etmek istiyor musunuz?`)) {
