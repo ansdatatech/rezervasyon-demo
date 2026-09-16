@@ -94,3 +94,29 @@ export const DELETE: APIRoute = async ({ request }) => {
         return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     }
 };
+
+// 4. YÖNETİCİ TARAFINDAN ŞİFRE SIFIRLAMA (PUT)
+export const PUT: APIRoute = async ({ request }) => {
+    // GÜVENLİK KİLİDİ: Sadece yönetici şifre sıfırlayabilir
+    if (!await rolKontrol(request, 'yonetici')) {
+        return new Response(JSON.stringify({ error: "Yetkisiz erişim! Sadece yöneticiler şifre sıfırlayabilir." }), { status: 403 });
+    }
+
+    try {
+        const body = await request.json();
+        
+        if (!body.id || !body.yeniSifre) {
+            return new Response(JSON.stringify({ error: "Eksik bilgi!" }), { status: 400 });
+        }
+
+        const hashedPassword = await bcrypt.hash(body.yeniSifre, 10);
+        
+        await db.update(kullanicilar)
+            .set({ sifreHash: hashedPassword })
+            .where(eq(kullanicilar.id, parseInt(body.id)));
+
+        return new Response(JSON.stringify({ success: true }), { status: 200 });
+    } catch (error: any) {
+        return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    }
+};
