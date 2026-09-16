@@ -61,9 +61,13 @@ try {
             if(res.ok) {
                 tumMusteriler = await res.json();
                 tabloyuCiz(tumMusteriler);
+            } else {
+                // Eğer sunucudan onay (200) gelmezse Yükleniyor yazısını hatayla değiştir
+                const hataData = await res.json();
+                document.getElementById('rehberTabloGövdesi').innerHTML = `<tr><td colspan="3" class="text-center text-danger">Hata: ${hataData.error || 'Veri çekilemedi'}</td></tr>`;
             }
         } catch (err) {
-            document.getElementById('rehberTabloGövdesi').innerHTML = '<tr><td colspan="3" class="text-center text-danger">Bağlantı hatası!</td></tr>';
+            document.getElementById('rehberTabloGövdesi').innerHTML = '<tr><td colspan="3" class="text-center text-danger">Bağlantı hatası veya sunucu yanıt vermiyor!</td></tr>';
         }
     });
 
