@@ -4,16 +4,18 @@ import { decodeJwt } from 'jose';
 
 const token = Astro.cookies.get('auth_token')?.value;
 
-if (!token) {
-    return Astro.redirect('/login'); // Eğer giriş sayfanın adı farklıysa onu yaz (örn: '/')
-}
+// Kullanıcı giriş yapmış mı?
+const isLoggedIn = !!token;
 
+// Eğer giriş yaptıysa rolünü çöz, yapmadıysa boş bırak
 let rol = '';
-try {
-    const decoded = decodeJwt(token);
-    rol = decoded.rol; // İşte eksik olan hayat kurtarıcı satır!
-} catch (error) {
-    return Astro.redirect('/login');
+if (token) {
+    try {
+        const decoded = decodeJwt(token);
+        rol = decoded.rol as string;
+    } catch (error) {
+        // Token geçersizse sessizce yoksay, kişi zaten giriş yapmamış sayılır
+    }
 }
 ---
 
