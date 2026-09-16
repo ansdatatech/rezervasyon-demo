@@ -31,9 +31,11 @@ try {
     <div class="container mt-5">
         <div class="row">
             
-            <!-- SOL: YENİ PERSONEL EKLEME FORMU -->
+            <!-- SOL SÜTUN -->
             <div class="col-md-4 mb-4">
-                <div class="card shadow-sm border-0 rounded-4 h-100">
+                
+                <!-- 1. YENİ PERSONEL EKLEME FORMU -->
+                <div class="card shadow-sm border-0 rounded-4 mb-4">
                     <div class="card-header bg-white border-0 pt-4 pb-0">
                         <h5 class="fw-bold text-secondary"><i class="fa-solid fa-user-plus me-2"></i>Yeni Hesap Ekle</h5>
                     </div>
@@ -63,9 +65,35 @@ try {
                         </form>
                     </div>
                 </div>
+
+                <!-- 2. ÇALIŞMA SAATLERİ AYARI -->
+                <div class="card shadow-sm border-0 rounded-4">
+                    <div class="card-header bg-white border-0 pt-4 pb-0">
+                        <h5 class="fw-bold text-secondary"><i class="fa-solid fa-clock me-2"></i>Çalışma Saatleri</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="saatAyarlariFormu">
+                            <input type="hidden" id="ayarId">
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label fw-bold small text-muted">Açılış Saati</label>
+                                    <input type="number" id="baslangicSaati" class="form-control fw-bold" min="0" max="23" required>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label fw-bold small text-muted">Kapanış Saati</label>
+                                    <input type="number" id="bitisSaati" class="form-control fw-bold" min="1" max="24" required>
+                                </div>
+                            </div>
+                            <button type="submit" id="saatKaydetBtn" class="btn btn-warning w-100 fw-bold shadow-sm py-2">
+                                <i class="fa-solid fa-save me-2"></i>SAATLERİ KAYDET
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
             </div>
 
-            <!-- SAĞ: MEVCUT PERSONELLER TABLOSU -->
+            <!-- SAĞ SÜTUN: MEVCUT PERSONELLER TABLOSU -->
             <div class="col-md-8 mb-4">
                 <div class="card shadow-sm border-0 rounded-4 h-100">
                     <div class="card-header bg-white border-0 pt-4 pb-0">
@@ -121,6 +149,7 @@ try {
 <script is:inline>
     document.addEventListener("DOMContentLoaded", function() {
         personelleriGetir();
+        ayarlariGetir(); // Sayfa açılınca çalışma saatlerini çek
 
         // PERSONEL EKLEME İŞLEMİ
         document.getElementById('personelFormu').addEventListener('submit', async (e) => {
@@ -185,7 +214,47 @@ try {
                 btn.disabled = false; 
             }
         });
+
+        // ÇALIŞMA SAATLERİNİ KAYDETME İŞLEMİ
+        document.getElementById('saatAyarlariFormu').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('saatKaydetBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>KAYDEDİLİYOR...'; 
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch('/api/ayarlar-api', {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id: document.getElementById('ayarId').value,
+                        baslangicSaati: document.getElementById('baslangicSaati').value,
+                        bitisSaati: document.getElementById('bitisSaati').value
+                    })
+                });
+                if(res.ok) {
+                    alert("Saatler güncellendi! Ana sayfadaki takvim artık bu saatlere göre çizilecek.");
+                } else alert("Hata oluştu.");
+            } catch(err) { 
+                alert("Sunucu hatası"); 
+            } finally { 
+                btn.innerHTML = '<i class="fa-solid fa-save me-2"></i>SAATLERİ KAYDET'; 
+                btn.disabled = false; 
+            }
+        });
     });
+
+    // AYARLARI GETİRME FONKSİYONU
+    async function ayarlariGetir() {
+        try {
+            const res = await fetch('/api/ayarlar-api');
+            if(res.ok) {
+                const data = await res.json();
+                document.getElementById('ayarId').value = data.id;
+                document.getElementById('baslangicSaati').value = data.baslangicSaati;
+                document.getElementById('bitisSaati').value = data.bitisSaati;
+            }
+        } catch (err) { console.error("Ayarlar çekilemedi."); }
+    }
 
     async function personelleriGetir() {
         const tbody = document.getElementById('personelTabloGövdesi');
@@ -222,7 +291,6 @@ try {
         }
     }
 
-    // Modal açma fonksiyonunu global window objesine bağlıyoruz ki satır içi onclick bulabilsin
     window.sifreSifirlaModalAc = function(id, adSoyad) {
         document.getElementById('sifirlanacakId').value = id;
         document.getElementById('sifirlanacakKisi').innerText = adSoyad;
