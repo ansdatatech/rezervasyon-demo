@@ -3,19 +3,17 @@ import Layout from '../layouts/Layout.astro';
 import { decodeJwt } from 'jose';
 
 const token = Astro.cookies.get('auth_token')?.value;
-let isLoggedIn = false;
-let aktifKullanici = "";
-let aktifRol = "";
 
-if (token) {
-    try {
-        const decoded = decodeJwt(token);
-        isLoggedIn = true;
-        aktifKullanici = decoded.kullaniciAdi as string;
-        aktifRol = decoded.rol as string;
-    } catch (error) {
-        isLoggedIn = false;
-    }
+if (!token) {
+    return Astro.redirect('/login'); // Eğer giriş sayfanın adı farklıysa onu yaz (örn: '/')
+}
+
+let rol = '';
+try {
+    const decoded = decodeJwt(token);
+    rol = decoded.rol; // İşte eksik olan hayat kurtarıcı satır!
+} catch (error) {
+    return Astro.redirect('/login');
 }
 ---
 
