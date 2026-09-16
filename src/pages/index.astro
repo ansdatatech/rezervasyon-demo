@@ -7,15 +7,17 @@ const token = Astro.cookies.get('auth_token')?.value;
 // Kullanıcı giriş yapmış mı?
 const isLoggedIn = !!token;
 
-// Değişkenleri baştan tanımlıyoruz ki arayüz hata vermesin
+// Arayüzde (HTML) hata vermemesi için tüm olası değişkenleri baştan tanımlıyoruz
 let rol = '';
+let aktifRol = ''; 
 let aktifKullanici = '';
 
 if (token) {
     try {
         const decoded = decodeJwt(token);
         rol = decoded.rol as string;
-        aktifKullanici = decoded.kullaniciAdi as string; // Eksik olan değişkeni biletin (token) içinden aldık
+        aktifRol = decoded.rol as string; // Eksik olan aktifRol değişkenini de ekledik
+        aktifKullanici = decoded.kullaniciAdi as string;
     } catch (error) {
         // Token geçersizse sessizce yoksay
     }
