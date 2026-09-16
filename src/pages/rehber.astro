@@ -1,0 +1,102 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { decodeJwt } from 'jose';
+
+const token = Astro.cookies.get('auth_token')?.value;
+if (!token) return Astro.redirect('/');
+
+let rol = '';
+try {
+    const decoded = decodeJwt(token);
+    rol = decoded.rol as string;
+    // Güvenlik: Rehberi sadece Yönetici ve Sekreter görebilir (Antrenörler tüm listeye erişemez)
+    if (rol !== 'yonetici' && rol !== 'sekreter') {
+        return Astro.redirect('/');
+    }
+} catch (error) {
+    return Astro.redirect('/');
+}
+---
+
+<Layout title="Müşteri Rehberi | Kort Rezervasyon">
+    <div class="bg-dark text-white p-2 d-flex justify-content-between align-items-center" style="border-bottom: 3px solid var(--accent-green);">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span class="fw-bold"><i class="fa-solid fa-address-book text-secondary me-2"></i> MÜŞTERİ REHBERİ (CRM)</span>
+            <a href="/" class="btn btn-sm btn-outline-light"><i class="fa-solid fa-arrow-left me-1"></i> Panele Dön</a>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-header bg-white border-0 pt-4 pb-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+                <h5 class="fw-bold text-secondary m-0"><i class="fa-solid fa-users me-2"></i>Kayıtlı Müşteriler</h5>
+                <input type="text" id="aramaKutusu" class="form-control form-control-sm w-100" style="max-width: 300px;" placeholder="İsim veya Telefon Ara...">
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle m-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Ad Soyad</th>
+                                <th>Telefon Numarası</th>
+                                <th class="text-end pe-4">Hızlı İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rehberTabloGövdesi">
+                            <tr><td colspan="3" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i> Yükleniyor...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</Layout>
+
+<script is:inline>
+    let tumMusteriler = [];
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        try {
+            const res = await fetch('/api/rehber');
+            if(res.ok) {
+                tumMusteriler = await res.json();
+                tabloyuCiz(tumMusteriler);
+            }
+        } catch (err) {
+            document.getElementById('rehberTabloGövdesi').innerHTML = '<tr><td colspan="3" class="text-center text-danger">Bağlantı hatası!</td></tr>';
+        }
+    });
+
+    // Dinamik Arama (Yazarken filtreler)
+    document.getElementById('aramaKutusu').addEventListener('input', (e) => {
+        const kelime = e.target.value.toLowerCase();
+        const filtrelenmis = tumMusteriler.filter(m => 
+            m.adSoyad.toLowerCase().includes(kelime) || 
+            (m.telefon && m.telefon.includes(kelime))
+        );
+        tabloyuCiz(filtrelenmis);
+    });
+
+    function tabloyuCiz(liste) {
+        const tbody = document.getElementById('rehberTabloGövdesi');
+        tbody.innerHTML = '';
+        
+        if (liste.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted">Kayıt bulunamadı.</td></tr>';
+            return;
+        }
+        
+        liste.forEach(m => {
+            const telLink = m.telefon ? `<a href="tel:${m.telefon}" class="text-decoration-none fw-bold text-dark">${m.telefon}</a>` : `<span class="text-muted">-</span>`;
+            const wpBtn = m.telefon ? `<a href="https://wa.me/${m.telefon.replace(/\D/g,'')}" target="_blank" class="btn btn-sm btn-success shadow-sm" title="WhatsApp'tan Yaz"><i class="fa-brands fa-whatsapp"></i></a>` : '';
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td class="ps-4 fw-bold text-secondary">${m.adSoyad}</td>
+                    <td>${telLink}</td>
+                    <td class="text-end pe-4">${wpBtn}</td>
+                </tr>
+            `;
+        });
+    }
+</script>

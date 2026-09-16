@@ -87,6 +87,12 @@ if (token) {
                                 <i class="fa-solid fa-chart-pie me-1"></i> İstatistik
                             </a>
                         )}
+                        <!-- REHBER BUTONU (Sadece Sekreter ve Yöneticiye Gösterilir) -->
+                        {rol !== 'antrenor' && (
+                            <a href="/rehber" class="btn btn-sm btn-outline-primary fw-bold shadow-sm">
+                                <i class="fa-solid fa-address-book"></i> Rehber
+                            </a>
+                        )}
                     </div>
                 </div>
             </div>
