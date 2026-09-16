@@ -16,7 +16,7 @@ if (token) {
     try {
         const decoded = decodeJwt(token);
         rol = decoded.rol as string;
-        aktifRol = decoded.rol as string; // Eksik olan aktifRol değişkenini de ekledik
+        aktifRol = decoded.rol as string; 
         aktifKullanici = decoded.kullaniciAdi as string;
     } catch (error) {
         // Token geçersizse sessizce yoksay
@@ -81,7 +81,6 @@ if (token) {
                         <button class="btn btn-sm btn-outline-secondary fw-bold shadow-sm" onclick="new bootstrap.Modal(document.getElementById('sifreModal')).show()">
                             <i class="fa-solid fa-key"></i> Şifre Değiştir
                         </button>
-                        <!-- Ayarlar butonu sadece yöneticiye görünür -->
                         {aktifRol === 'yonetici' && (
                             <a href="/ayarlar" class="btn btn-sm btn-secondary fw-bold shadow-sm">
                                 <i class="fa-solid fa-gear"></i> Ayarlar
@@ -92,7 +91,6 @@ if (token) {
                                 <i class="fa-solid fa-chart-pie me-1"></i> İstatistik
                             </a>
                         )}
-                        <!-- REHBER BUTONU (Sadece Sekreter ve Yöneticiye Gösterilir) -->
                         {rol !== 'antrenor' && (
                             <a href="/rehber" class="btn btn-sm btn-outline-primary fw-bold shadow-sm">
                                 <i class="fa-solid fa-address-book"></i> Rehber
@@ -148,7 +146,7 @@ if (token) {
                                 <span class="badge bg-dark fs-6" id="modalKortBadge"></span>
                             </div>
                             <form id="kayitFormu">
-                                <input type="hidden" id="editKayitId"> <!-- YENİ: DÜZENLEME ID'Sİ -->
+                                <input type="hidden" id="editKayitId">
                                 <input type="hidden" id="kayitSaat">
                                 <input type="hidden" id="kayitKort">
                                 
@@ -201,7 +199,7 @@ if (token) {
                             </div>
                             <input type="hidden" id="silinecekKayitId">
                             
-                            <!-- DÜZENLE BUTONU (YENİ EKLENDİ) -->
+                            <!-- DÜZENLE BUTONU -->
                             <button type="button" id="duzenleBtn" onclick="window.kayitDuzenleModunaGec()" class="btn btn-warning w-100 py-3 fw-bold fs-5 rounded-3 mb-2 shadow-sm">
                                 <i class="fa-solid fa-pen-to-square me-2"></i> DÜZENLE
                             </button>
@@ -223,8 +221,10 @@ if (token) {
     window.isoTarihFormat = "";
     window.myModal = null;
     window.detayModal = null;
-    window.aktifIncelenenKayit = null; // Düzenleme için kaydı hafızada tutuyoruz
-    window.saatler = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+    window.aktifIncelenenKayit = null; 
+    
+    // YENİ: SAATLER ARTIK BOŞ BAŞLIYOR, VERİTABANINDAN DOLACAK
+    window.saatler = [];
 
     document.addEventListener("DOMContentLoaded", function() {
         // Oturum İşlemleri
@@ -337,13 +337,38 @@ if (token) {
         }
     });
 
-    function baslatSistemi() {
+    // YENİ: FONKSİYON ARTIK ASYNC ÇÜNKÜ VERİTABANINA GİDİP SAATLERİ BEKLEYECEK
+    async function baslatSistemi() {
         if(typeof bootstrap !== 'undefined') {
             window.myModal = new bootstrap.Modal(document.getElementById('rezModal'));
             window.detayModal = new bootstrap.Modal(document.getElementById('detayModal'));
         }
+
+        // 1. Ayarları Veritabanından Çekip Saatleri Oluşturuyoruz
+        try {
+            const res = await fetch('/api/ayarlar-api');
+            if(res.ok) {
+                const ayar = await res.json();
+                const baslangic = parseInt(ayar.baslangicSaati);
+                const bitis = parseInt(ayar.bitisSaati);
+                
+                window.saatler = []; // Diziyi sıfırla
+                for(let i = baslangic; i <= bitis; i++) {
+                    window.saatler.push(i.toString().padStart(2, '0') + ":00");
+                }
+            } else {
+                throw new Error("Ayarlar çekilemedi");
+            }
+        } catch(err) {
+            console.error(err);
+            // Hata olursa güvence olarak varsayılan saatleri kullan
+            window.saatler = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"];
+        }
+
+        // 2. Takvimi Güncelle
         tarihiGuncelle(`${window.guncelTarih.getFullYear()}-${String(window.guncelTarih.getMonth() + 1).padStart(2, '0')}-${String(window.guncelTarih.getDate()).padStart(2, '0')}`);
     }
+
     function tarihDegistir(gf) { window.guncelTarih.setDate(window.guncelTarih.getDate() + gf); tarihiGuncelle(`${window.guncelTarih.getFullYear()}-${String(window.guncelTarih.getMonth() + 1).padStart(2, '0')}-${String(window.guncelTarih.getDate()).padStart(2, '0')}`); }
     
     function tarihiGuncelle(val) {
@@ -359,7 +384,7 @@ if (token) {
     async function tabloyuCiz() {
         const tbody = document.getElementById('tabloGövdesi');
         if(!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted fw-bold"><i class="fa-solid fa-spinner fa-spin me-2"></i>Veritabanından Çekiliyor...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted fw-bold"><i class="fa-solid fa-spinner fa-spin me-2"></i>Takvim Çiziliyor...</td></tr>';
         
         try {
             const res = await fetch(`/api/rezervasyon?tarih=${window.isoTarihFormat}`);
@@ -387,19 +412,27 @@ if (token) {
                         tr.appendChild(td);
                     } else {
                         let td = document.createElement('td');
-                        td.className = 'cell-empty'; td.innerHTML = `<i class="fa-solid fa-plus"></i>`;
+                        td.className = 'cell-empty'; 
+                        // Butonlara target data ekledik ki tarih kontrolünde yakalanabilsin
+                        td.innerHTML = `<button type="button" class="btn btn-sm btn-link p-0 text-success w-100 h-100 shadow-none border-0" data-bs-target="#rezervasyonModal"><i class="fa-solid fa-plus"></i></button>`;
                         td.addEventListener('click', () => window.ekleModalAc(kort, saat));
                         tr.appendChild(td);
                     }
                 }
                 tbody.appendChild(tr);
             });
+
+            // YENİ: Geçmişe tıklama yasağını tetikliyoruz!
+            if (typeof gecmisTarihButonKontrolu === 'function') {
+                gecmisTarihButonKontrolu();
+            }
+
         } catch (err) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation me-2"></i>Neon veritabanı bağlantı hatası!</td></tr>'; }
     }
 
     // YENİ EKLEME MODUNA GEÇİŞ
     window.ekleModalAc = function(kortNo, saat) {
-        document.getElementById('editKayitId').value = ""; // ID temizle (POST Modu)
+        document.getElementById('editKayitId').value = ""; 
         document.getElementById('kayitSaat').value = saat;
         document.getElementById('kayitKort').value = kortNo;
         document.getElementById('kayitAdi').value = ""; 
@@ -418,7 +451,7 @@ if (token) {
     };
 
     window.detayModalAc = function(kayit, kortNo, saat) {
-        window.aktifIncelenenKayit = kayit; // Düzenleme için hafızaya al
+        window.aktifIncelenenKayit = kayit; 
         const s = document.getElementById('sektorSecici').value;
         const alanIsmi = s === 'Kort' ? 'Kort' : (s === 'Oda' ? 'Oda' : 'Bölüm');
         
@@ -434,10 +467,10 @@ if (token) {
 
     // DÜZENLEME MODUNA GEÇİŞ (Formu açar ve bilgileri doldurur)
     window.kayitDuzenleModunaGec = function() {
-        if(window.detayModal) window.detayModal.hide(); // Detayı kapat
+        if(window.detayModal) window.detayModal.hide(); 
 
         const kayit = window.aktifIncelenenKayit;
-        document.getElementById('editKayitId').value = kayit.id; // ID eklendi (PUT Modu)
+        document.getElementById('editKayitId').value = kayit.id; 
         document.getElementById('kayitSaat').value = kayit.saat;
         document.getElementById('kayitKort').value = kayit.alanId;
         document.getElementById('kayitAdi').value = kayit.kisiAdi;
@@ -451,7 +484,7 @@ if (token) {
         document.getElementById('rezModalBaslik').innerHTML = '<i class="fa-solid fa-pen-to-square text-warning me-2"></i>Rezervasyonu Düzenle';
         document.getElementById('kaydetBtn').innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> GÜNCELLE';
         
-        if(window.myModal) window.myModal.show(); // Formu aç
+        if(window.myModal) window.myModal.show(); 
     };
 
     window.kayitSilOnay = async function() {
@@ -471,24 +504,19 @@ if (token) {
     
     // Geçmiş tarihli günlerde (+) butonlarını sekreter ve antrenörlere kapatır
     function gecmisTarihButonKontrolu() {
-        const rol = localStorage.getItem('kullaniciRol') || 'sekreter'; 
-        // Not: Eğer rolü localstorage'da tutmuyorsan, sadece butonları herkes için de gizleyebilirsin.
-        
-        const tarihInput = document.getElementById('tarihSecici'); // Tarih seçtiğin inputun ID'si
-        if(!tarihInput) return;
+        const rol = window.aktifRol || 'sekreter'; 
+        const seciliTarih = window.isoTarihFormat;
+        if(!seciliTarih) return;
 
-        const seciliTarih = tarihInput.value;
         const simdi = new Date();
         const bugunTarihi = new Date(simdi.getTime() - (simdi.getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
 
-        // Rezervasyon ekleme modalını açan tüm butonları bul
+        // Rezervasyon ekleme modalını açan tüm butonları bul (Artık tabloyuCiz içinde doğru class ve tag atadık)
         const ekleButonlari = document.querySelectorAll('button[data-bs-target="#rezervasyonModal"]');
 
         if (seciliTarih < bugunTarihi && rol !== 'yonetici') {
-            // Geçmişse butonları gizle
             ekleButonlari.forEach(btn => btn.style.visibility = 'hidden');
         } else {
-            // Bugün veya gelecekse geri göster
             ekleButonlari.forEach(btn => btn.style.visibility = 'visible');
         }
     }
