@@ -37,7 +37,8 @@ export const PUT: APIRoute = async ({ request }) => {
         // İlgili ayarı güncelle (ID'si 1 olanı)
         await db.update(sistemAyarlari).set({
             baslangicSaati: parseInt(body.baslangicSaati),
-            bitisSaati: parseInt(body.bitisSaati)
+            bitisSaati: parseInt(body.bitisSaati),
+            alanSayisi: parseInt(body.alanSayisi) // YENİ EKLENEN SATIR
         }).where(eq(sistemAyarlari.id, body.id));
 
         return new Response(JSON.stringify({ success: true }), { status: 200 });
