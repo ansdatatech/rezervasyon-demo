@@ -84,6 +84,11 @@ try {
                                     <input type="number" id="bitisSaati" class="form-control fw-bold" min="1" max="24" required>
                                 </div>
                             </div>
+                            <div class="col-12 mb-3 mt-2">
+                                <label class="form-label fw-bold small text-muted">Hizmet Verilen Alan (Kort/Oda) Sayısı</label>
+                                <input type="number" id="alanSayisi" class="form-control fw-bold border-primary" min="1" max="20" required>
+                                <div class="form-text small">Sistemdeki sütun sayısı buna göre çizilecektir.</div>
+                            </div>
                             <button type="submit" id="saatKaydetBtn" class="btn btn-warning w-100 fw-bold shadow-sm py-2">
                                 <i class="fa-solid fa-save me-2"></i>SAATLERİ KAYDET
                             </button>
@@ -228,7 +233,8 @@ try {
                     body: JSON.stringify({
                         id: document.getElementById('ayarId').value,
                         baslangicSaati: document.getElementById('baslangicSaati').value,
-                        bitisSaati: document.getElementById('bitisSaati').value
+                        bitisSaati: document.getElementById('bitisSaati').value,
+                        alanSayisi: document.getElementById('alanSayisi').value
                     })
                 });
                 if(res.ok) {
@@ -252,6 +258,7 @@ try {
                 document.getElementById('ayarId').value = data.id;
                 document.getElementById('baslangicSaati').value = data.baslangicSaati;
                 document.getElementById('bitisSaati').value = data.bitisSaati;
+                document.getElementById('alanSayisi').value = data.alanSayisi || 4;
             }
         } catch (err) { console.error("Ayarlar çekilemedi."); }
     }

@@ -118,6 +118,7 @@ if (token) {
                     <table class="table-matrix">
                         <thead>
                             <tr>
+                                <!-- Sütunlar artık JavaScript tarafından dinamik oluşturulacak, burası başlangıç için sadece yer tutucu -->
                                 <th style="width: 16%;"><i class="fa-regular fa-clock"></i> SAAT</th>
                                 <th style="width: 21%;" class="dinamik-alan">KORT 1</th>
                                 <th style="width: 21%;" class="dinamik-alan">KORT 2</th>
@@ -223,8 +224,9 @@ if (token) {
     window.detayModal = null;
     window.aktifIncelenenKayit = null; 
     
-    // YENİ: SAATLER ARTIK BOŞ BAŞLIYOR, VERİTABANINDAN DOLACAK
+    // SAATLER VE ALAN SAYISI ARTIK VERİTABANINDAN DOLACAK
     window.saatler = [];
+    window.alanSayisi = 4; // API yanıt vermezse kullanılacak varsayılan sayı
 
     document.addEventListener("DOMContentLoaded", function() {
         // Oturum İşlemleri
@@ -265,8 +267,8 @@ if (token) {
 
             document.getElementById('sektorSecici').addEventListener('change', (e) => {
                 const s = e.target.value;
-                document.querySelectorAll('.dinamik-alan').forEach((a, i) => a.innerText = `${s.toUpperCase()} ${i + 1}`);
                 document.getElementById('navbar-title').innerHTML = s === 'Kort' ? '<i class="fa-solid fa-calendar-check text-success me-2"></i> KORT REZERVASYON' : '<i class="fa-solid fa-couch text-success me-2"></i> SEANS/ODA';
+                tabloyuCiz(); // Başlıklar tabloyuCiz içinde dinamik oluşturulduğu için sadece yeniden çizmesini istiyoruz
             });
 
             // CRM ARAMASI
@@ -337,20 +339,21 @@ if (token) {
         }
     });
 
-    // YENİ: FONKSİYON ARTIK ASYNC ÇÜNKÜ VERİTABANINA GİDİP SAATLERİ BEKLEYECEK
     async function baslatSistemi() {
         if(typeof bootstrap !== 'undefined') {
             window.myModal = new bootstrap.Modal(document.getElementById('rezModal'));
             window.detayModal = new bootstrap.Modal(document.getElementById('detayModal'));
         }
 
-        // 1. Ayarları Veritabanından Çekip Saatleri Oluşturuyoruz
+        // 1. Ayarları Veritabanından Çekip Saatleri ve Alan Sayısını Oluşturuyoruz
         try {
             const res = await fetch('/api/ayarlar-api');
             if(res.ok) {
                 const ayar = await res.json();
                 const baslangic = parseInt(ayar.baslangicSaati);
                 const bitis = parseInt(ayar.bitisSaati);
+                
+                window.alanSayisi = parseInt(ayar.alanSayisi) || 4; // YENİ: ALAN SAYISINI ÇEKİYORUZ
                 
                 window.saatler = []; // Diziyi sıfırla
                 for(let i = baslangic; i <= bitis; i++) {
@@ -361,8 +364,9 @@ if (token) {
             }
         } catch(err) {
             console.error(err);
-            // Hata olursa güvence olarak varsayılan saatleri kullan
+            // Hata olursa güvence olarak varsayılan saatleri ve alan sayısını kullan
             window.saatler = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"];
+            window.alanSayisi = 4;
         }
 
         // 2. Takvimi Güncelle
@@ -384,26 +388,47 @@ if (token) {
     async function tabloyuCiz() {
         const tbody = document.getElementById('tabloGövdesi');
         if(!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted fw-bold"><i class="fa-solid fa-spinner fa-spin me-2"></i>Takvim Çiziliyor...</td></tr>';
+        
+        // Yükleniyor mesajının sütun sayısına uygun yayılması için colspan hesaplıyoruz (Alan Sayısı + 1 Saat sütunu)
+        const toplamSutun = window.alanSayisi + 1;
+        tbody.innerHTML = `<tr><td colspan="${toplamSutun}" class="text-center py-5 text-muted fw-bold"><i class="fa-solid fa-spinner fa-spin me-2"></i>Takvim Çiziliyor...</td></tr>`;
         
         try {
             const res = await fetch(`/api/rezervasyon?tarih=${window.isoTarihFormat}`);
             const dbKayitlar = await res.json();
             const kayitMap = {};
             if(Array.isArray(dbKayitlar)) dbKayitlar.forEach(k => { kayitMap[`${k.saat}_${k.alanId}`] = k; });
+            
+            // --- ADIM 1: TABLO BAŞLIKLARINI DİNAMİK OLUŞTUR ---
+            const theadTr = document.querySelector('.table-matrix thead tr');
+            const s = document.getElementById('sektorSecici').value;
+            const alanIsmi = s === 'Kort' ? 'KORT' : (s === 'Oda' ? 'ODA' : 'BÖLÜM');
+            
+            // Genişlikleri sütun sayısına göre eşit paylaştır (Saat sütununa %12 ayırıp, kalanı bölüyoruz)
+            const widthPct = Math.floor(88 / window.alanSayisi);
+            let headerHtml = `<th style="width: 12%;"><i class="fa-regular fa-clock"></i> SAAT</th>`;
+            
+            for(let i = 1; i <= window.alanSayisi; i++) {
+                headerHtml += `<th style="width: ${widthPct}%;" class="dinamik-alan">${alanIsmi} ${i}</th>`;
+            }
+            theadTr.innerHTML = headerHtml;
+
             tbody.innerHTML = ""; 
 
+            // --- ADIM 2: HÜCRELERİ ÇİZ ---
             window.saatler.forEach(saat => {
                 let tr = document.createElement('tr');
                 tr.innerHTML = `<td class="time-cell">${saat}</td>`;
-                for (let kort = 1; kort <= 4; kort++) {
+                
+                // DÖNGÜ ARTIK SABİT 4 DEĞİL, ALAN SAYISINA GÖRE DÖNÜYOR
+                for (let kort = 1; kort <= window.alanSayisi; kort++) {
                     let mevcutKayit = kayitMap[`${saat}_${kort}`];
                     if (mevcutKayit) {
                         let td = document.createElement('td');
                         if (window.aktifRol === 'antrenor' && mevcutKayit.notlar !== window.aktifKullanici) {
                             td.style.backgroundColor = "#e9ecef"; td.style.cursor = "not-allowed";
                             td.innerHTML = `<div class="d-flex flex-column justify-content-center align-items-center h-100 opacity-50"><i class="fa-solid fa-lock mb-1"></i><span class="fw-bold small">Dolu</span></div>`;
-                            td.addEventListener('click', () => Swal.fire('Gizli Bilgi', 'Bu ders başka bir eğitmene aittir.', 'warning'));
+                            td.addEventListener('click', () => Swal.fire('Gizli Bilgi', 'Bu ders başka bir uzmana aittir.', 'warning'));
                         } else {
                             td.className = 'cell-full';
                             td.innerHTML = `<span class="rez-name">${mevcutKayit.kisiAdi}</span><span class="rez-teacher"><i class="fa-solid fa-user-tie me-1" style="font-size: 0.6rem;"></i>${mevcutKayit.notlar}</span><span class="rez-note"><i class="fa-solid fa-circle-info me-1"></i>${mevcutKayit.rezervasyonTuru}</span>`;
@@ -413,7 +438,6 @@ if (token) {
                     } else {
                         let td = document.createElement('td');
                         td.className = 'cell-empty'; 
-                        // Butonlara target data ekledik ki tarih kontrolünde yakalanabilsin
                         td.innerHTML = `<button type="button" class="btn btn-sm btn-link p-0 text-success w-100 h-100 shadow-none border-0" data-bs-target="#rezervasyonModal"><i class="fa-solid fa-plus"></i></button>`;
                         td.addEventListener('click', () => window.ekleModalAc(kort, saat));
                         tr.appendChild(td);
@@ -422,12 +446,9 @@ if (token) {
                 tbody.appendChild(tr);
             });
 
-            // YENİ: Geçmişe tıklama yasağını tetikliyoruz!
-            if (typeof gecmisTarihButonKontrolu === 'function') {
-                gecmisTarihButonKontrolu();
-            }
+            if (typeof gecmisTarihButonKontrolu === 'function') gecmisTarihButonKontrolu();
 
-        } catch (err) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation me-2"></i>Neon veritabanı bağlantı hatası!</td></tr>'; }
+        } catch (err) { tbody.innerHTML = `<tr><td colspan="${toplamSutun}" class="text-center py-5 text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation me-2"></i>Neon veritabanı bağlantı hatası!</td></tr>`; }
     }
 
     // YENİ EKLEME MODUNA GEÇİŞ
@@ -511,7 +532,6 @@ if (token) {
         const simdi = new Date();
         const bugunTarihi = new Date(simdi.getTime() - (simdi.getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
 
-        // Rezervasyon ekleme modalını açan tüm butonları bul (Artık tabloyuCiz içinde doğru class ve tag atadık)
         const ekleButonlari = document.querySelectorAll('button[data-bs-target="#rezervasyonModal"]');
 
         if (seciliTarih < bugunTarihi && rol !== 'yonetici') {
