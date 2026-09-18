@@ -118,7 +118,7 @@ if (token) {
                     <table class="table-matrix">
                         <thead>
                             <tr>
-                                <!-- Sütunlar artık JavaScript tarafından dinamik oluşturulacak, burası başlangıç için sadece yer tutucu -->
+                                <!-- Sütunlar JavaScript tarafından dinamik oluşturulacak, burası başlangıç için sadece yer tutucu -->
                                 <th style="width: 16%;"><i class="fa-regular fa-clock"></i> SAAT</th>
                                 <th style="width: 21%;" class="dinamik-alan">KORT 1</th>
                                 <th style="width: 21%;" class="dinamik-alan">KORT 2</th>
@@ -415,6 +415,11 @@ if (token) {
 
             tbody.innerHTML = ""; 
 
+            // --- GEÇMİŞ TARİH KONTROLÜ ---
+            const simdi = new Date();
+            const bugunTarihi = new Date(simdi.getTime() - (simdi.getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
+            const isGecmisTarih = window.isoTarihFormat < bugunTarihi;
+
             // --- ADIM 2: HÜCRELERİ ÇİZ ---
             window.saatler.forEach(saat => {
                 let tr = document.createElement('tr');
@@ -438,15 +443,26 @@ if (token) {
                     } else {
                         let td = document.createElement('td');
                         td.className = 'cell-empty'; 
-                        td.innerHTML = `<button type="button" class="btn btn-sm btn-link p-0 text-success w-100 h-100 shadow-none border-0" data-bs-target="#rezervasyonModal"><i class="fa-solid fa-plus"></i></button>`;
-                        td.addEventListener('click', () => window.ekleModalAc(kort, saat));
+                        
+                        // EĞER GEÇMİŞ TARİHSE TIKLAMAYI İPTAL ET
+                        if (isGecmisTarih) {
+                            td.style.cursor = "not-allowed";
+                            td.style.backgroundColor = "#f8f9fa";
+                            td.innerHTML = `<div class="w-100 h-100 d-flex justify-content-center align-items-center opacity-25"><i class="fa-solid fa-ban text-muted"></i></div>`;
+                            td.addEventListener('click', () => {
+                                if(typeof Swal !== 'undefined') Swal.fire('İşlem Engellendi', 'Geçmiş tarihlere yeni kayıt eklenemez.', 'error');
+                                else alert('Geçmiş tarihlere yeni kayıt eklenemez.');
+                            });
+                        } else {
+                            // BUGÜN VEYA GELECEKSE NORMAL ÇALIŞSIN
+                            td.innerHTML = `<button type="button" class="btn btn-sm btn-link p-0 text-success w-100 h-100 shadow-none border-0"><i class="fa-solid fa-plus"></i></button>`;
+                            td.addEventListener('click', () => window.ekleModalAc(kort, saat));
+                        }
                         tr.appendChild(td);
                     }
                 }
                 tbody.appendChild(tr);
             });
-
-            if (typeof gecmisTarihButonKontrolu === 'function') gecmisTarihButonKontrolu();
 
         } catch (err) { tbody.innerHTML = `<tr><td colspan="${toplamSutun}" class="text-center py-5 text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation me-2"></i>Neon veritabanı bağlantı hatası!</td></tr>`; }
     }
@@ -483,6 +499,18 @@ if (token) {
         document.getElementById('detayTur').innerText = kayit.rezervasyonTuru || '-';
         document.getElementById('detayEkleyen').innerText = kayit.notlar;
         document.getElementById('silinecekKayitId').value = kayit.id;
+        
+        // GEÇMİŞ TARİH İÇİN DÜZENLE/SİL BUTONLARINI GİZLE
+        const simdi = new Date();
+        const bugunTarihi = new Date(simdi.getTime() - (simdi.getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
+        if (window.isoTarihFormat < bugunTarihi) {
+            document.getElementById('duzenleBtn').style.display = 'none';
+            document.getElementById('silBtn').style.display = 'none';
+        } else {
+            document.getElementById('duzenleBtn').style.display = 'block';
+            document.getElementById('silBtn').style.display = 'block';
+        }
+
         if(window.detayModal) window.detayModal.show();
     };
 
@@ -522,24 +550,6 @@ if (token) {
             finally { document.getElementById('silBtn').innerHTML = '<i class="fa-solid fa-trash-can me-2"></i> İPTAL ET'; }
         }
     };
-    
-    // Geçmiş tarihli günlerde (+) butonlarını sekreter ve antrenörlere kapatır
-    function gecmisTarihButonKontrolu() {
-        const rol = window.aktifRol || 'sekreter'; 
-        const seciliTarih = window.isoTarihFormat;
-        if(!seciliTarih) return;
-
-        const simdi = new Date();
-        const bugunTarihi = new Date(simdi.getTime() - (simdi.getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
-
-        const ekleButonlari = document.querySelectorAll('button[data-bs-target="#rezervasyonModal"]');
-
-        if (seciliTarih < bugunTarihi && rol !== 'yonetici') {
-            ekleButonlari.forEach(btn => btn.style.visibility = 'hidden');
-        } else {
-            ekleButonlari.forEach(btn => btn.style.visibility = 'visible');
-        }
-    }
 </script>
 
 <!-- ŞİFRE DEĞİŞTİRME MODALI -->
